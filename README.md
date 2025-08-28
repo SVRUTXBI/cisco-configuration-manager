@@ -2,8 +2,6 @@
 
 # 🌐 Cisco Configuration Manager
 
-**Современное веб-приложение для управления конфигурацией Cisco устройств**
-
 [![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)](https://github.com/SVRUTXBI/cisco-configuration-manager/releases)
 [![Python](https://img.shields.io/badge/python-3.7+-green.svg)](https://www.python.org/)
 [![Flask](https://img.shields.io/badge/flask-2.3+-red.svg)](https://flask.palletsprojects.com/)
