@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}Шаблоны конфигурации - Cisco Configuration Manager{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>
+                    <i class="fas fa-file-alt me-2"></i>
+                    Шаблоны конфигурации
+                </h2>
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#applyTemplateModal">
+                    <i class="fas fa-play me-2"></i>Применить шаблон
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Templates Grid -->
+    <div class="row">
+        {% for template_id, template in templates.items() %}
+        <div class="col-lg-6 col-xl-4 mb-4">
+            <div class="card h-100 template-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cog me-2"></i>{{ template.name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text text-muted">{{ template.description }}</p>
+                    
+                    <h6 class="mb-3">Команды шаблона:</h6>
+                    <div class="template-commands bg-light p-3 rounded">
+                        <pre class="mb-0"><code>{% for command in template.commands %}{{ command }}{% if not loop.last %}
+{% endif %}{% endfor %}</code></pre>
+                    </div>
+                    
+                    {% if template.commands|length > 5 %}
+                    <div class="mt-2">
+                        <small class="text-muted">{{ template.commands|length }} команд в шаблоне</small>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <button class="btn btn-primary btn-sm w-100" 
+                            onclick="showApplyTemplateModal('{{ template_id }}', '{{ template.name }}')">
+                        <i class="fas fa-play me-2"></i>Применить к устройству
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if not templates %}
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">Шаблоны не найдены</h4>
+                <p class="text-muted">Шаблоны конфигурации загружаются автоматически</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Apply Template Modal -->
+<div class="modal fade" id="applyTemplateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-play me-2"></i>Применить шаблон конфигурации
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="applyTemplateForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="templateSelect" class="form-label">Шаблон</label>
+                                <select class="form-select" id="templateSelect" required>
+                                    <option value="">Выберите шаблон</option>
+                                    {% for template_id, template in templates.items() %}
+                                    <option value="{{ template_id }}">{{ template.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="deviceSelect" class="form-label">Устройство</label>
+                                <select class="form-select" id="deviceSelect" required>
+                                    <option value="">Выберите устройство</option>
+                                    {% for device in devices %}
+                                    <option value="{{ device.id }}">{{ device.name }} ({{ device.ip }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="templateVariables" style="display: none;">
+                        <h6 class="mb-3">Переменные шаблона:</h6>
+                        <div id="variablesContainer">
+                            <!-- Динамически добавляемые поля переменных -->
+                        </div>
+                    </div>
+                    
+                    <div id="templatePreview" style="display: none;">
+                        <h6 class="mb-3">Предварительный просмотр:</h6>
+                        <pre class="bg-dark text-light p-3 rounded" id="previewContent"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-info me-2" onclick="previewTemplate()">
+                        <i class="fas fa-eye me-2"></i>Предварительный просмотр
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-play me-2"></i>Применить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <div class="mt-3">Применение шаблона...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTemplateData = {};
+
+// Показать модальное окно с предзаполненным шаблоном
+function showApplyTemplateModal(templateId, templateName) {
+    document.getElementById('templateSelect').value = templateId;
+    updateTemplateVariables();
+    $('#applyTemplateModal').modal('show');
+}
+
+// Обновление переменных шаблона при выборе
+document.getElementById('templateSelect').addEventListener('change', updateTemplateVariables);
+
+function updateTemplateVariables() {
+    const templateId = document.getElementById('templateSelect').value;
+    const variablesContainer = document.getElementById('variablesContainer');
+    const templateVariables = document.getElementById('templateVariables');
+    
+    if (!templateId) {
+        templateVariables.style.display = 'none';
+        return;
+    }
+    
+    // Получение данных шаблона
+    fetch(`/api/templates`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const template = data.templates[templateId];
+            currentTemplateData = template;
+            
+            // Поиск переменных в командах шаблона
+            const variables = new Set();
+            template.commands.forEach(command => {
+                const matches = command.match(/\{([^}]+)\}/g);
+                if (matches) {
+                    matches.forEach(match => {
+                        variables.add(match.slice(1, -1));
+                    });
+                }
+            });
+            
+            if (variables.size > 0) {
+                variablesContainer.innerHTML = '';
+                variables.forEach(variable => {
+                    const div = document.createElement('div');
+                    div.className = 'mb-3';
+                    div.innerHTML = `
+                        <label class="form-label">${variable}</label>
+                        <input type="text" class="form-control" id="var_${variable}" 
+                               placeholder="Введите значение для ${variable}">
+                    `;
+                    variablesContainer.appendChild(div);
+                });
+                templateVariables.style.display = 'block';
+            } else {
+                templateVariables.style.display = 'none';
+            }
+        }
+    })
+    .catch(error => {
+        showAlert('Ошибка загрузки шаблона: ' + error.message, 'danger');
+    });
+}
+
+// Предварительный просмотр шаблона
+function previewTemplate() {
+    const templateId = document.getElementById('templateSelect').value;
+    if (!templateId || !currentTemplateData) {
+        showAlert('Выберите шаблон', 'warning');
+        return;
+    }
+    
+    // Собираем переменные
+    const variables = {};
+    const variableInputs = document.querySelectorAll('[id^="var_"]');
+    variableInputs.forEach(input => {
+        const varName = input.id.replace('var_', '');
+        variables[varName] = input.value || `{${varName}}`;
+    });
+    
+    // Заменяем переменные в командах
+    let preview = currentTemplateData.commands.map(command => {
+        let result = command;
+        Object.keys(variables).forEach(varName => {
+            result = result.replace(new RegExp(`\\{${varName}\\}`, 'g'), variables[varName]);
+        });
+        return result;
+    }).join('\n');
+    
+    document.getElementById('previewContent').textContent = preview;
+    document.getElementById('templatePreview').style.display = 'block';
+}
+
+// Применение шаблона
+document.getElementById('applyTemplateForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const templateId = document.getElementById('templateSelect').value;
+    const deviceId = document.getElementById('deviceSelect').value;
+    
+    if (!templateId || !deviceId) {
+        showAlert('Выберите шаблон и устройство', 'warning');
+        return;
+    }
+    
+    // Собираем переменные
+    const variables = {};
+    const variableInputs = document.querySelectorAll('[id^="var_"]');
+    variableInputs.forEach(input => {
+        const varName = input.id.replace('var_', '');
+        variables[varName] = input.value;
+    });
+    
+    $('#loadingModal').modal('show');
+    
+    fetch(`/api/devices/${deviceId}/template`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            template_name: templateId,
+            variables: variables
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#loadingModal').modal('hide');
+        if (data.success) {
+            $('#applyTemplateModal').modal('hide');
+            showAlert('Шаблон успешно применен', 'success');
+        } else {
+            showAlert('Ошибка применения шаблона: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        $('#loadingModal').modal('hide');
+        showAlert('Ошибка сети: ' + error.message, 'danger');
+    });
+});
+
+// Показать уведомление
+function showAlert(message, type) {
+    const alertDiv = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    $('.container-fluid').first().prepend(alertDiv);
+}
+</script>
+
+<style>
+.template-card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.template-card:hover {
+    transform: translateY(-5px);
+}
+
+.template-commands {
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 0.85rem;
+}
+
+.template-commands code {
+    background: none;
+    color: #333;
+    padding: 0;
+}
+
+#previewContent {
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,35 @@
+🌐 CISCO CONFIGURATION MANAGER
+===============================
+
+🚀 ЗАПУСК ПРИЛОЖЕНИЯ:
+
+🪟 WINDOWS:
+   📁 START_HERE.cmd        - Полная установка с проверками  
+   📁 ПРОСТОЙ_ЗАПУСК.cmd    - Быстрый запуск
+
+🐧 LINUX / 🍎 macOS:
+   📁 ./setup.sh           - Полная установка
+   📁 ./start.sh           - Запуск с проверками
+   📁 ./quick_start.sh     - Быстрый запуск
+
+После запуска откройте браузер:
+🌐 http://localhost:5000
+
+💡 ЕСЛИ НЕ ЗАПУСКАЕТСЯ:
+
+Windows (cmd):
+cd "E:\cisco-configuration-manager-1.2.1"
+pip install flask netmiko paramiko flask-cors python-dotenv
+python app.py
+
+Linux/macOS (terminal):
+cd /path/to/cisco-configuration-manager-1.2.1
+python3 -m pip install --user flask netmiko paramiko flask-cors python-dotenv
+python3 app.py
+
+📋 СИСТЕМНЫЕ ТРЕБОВАНИЯ:
+✓ Python 3.7+
+✓ pip
+✓ Интернет для установки зависимостей
+
+🔧 Для остановки приложения нажмите Ctrl+C в консоли

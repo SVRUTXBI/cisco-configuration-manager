@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+
+{% block title %}Конфигурация {{ device.name }} - Cisco Configuration Manager{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2>
+                        <i class="fas fa-cog me-2"></i>
+                        Конфигурация устройства
+                    </h2>
+                    <p class="text-muted mb-0">{{ device.name }} ({{ device.ip }})</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('devices') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад
+                    </a>
+                    <button class="btn btn-info" onclick="checkConnection()">
+                        <i class="fas fa-heartbeat me-2"></i>Проверить соединение
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Quick Commands -->
+        <div class="col-lg-4 col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>
+                        Быстрые команды
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="executeQuickCommand('show version')">
+                            <i class="fas fa-info-circle me-2"></i>Информация о системе
+                        </button>
+                        <button class="btn btn-outline-success" onclick="executeQuickCommand('show ip interface brief')">
+                            <i class="fas fa-network-wired me-2"></i>Интерфейсы
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="executeQuickCommand('show running-config')">
+                            <i class="fas fa-file-code me-2"></i>Текущая конфигурация
+                        </button>
+                        <button class="btn btn-outline-info" onclick="executeQuickCommand('show vlan brief')">
+                            <i class="fas fa-sitemap me-2"></i>VLAN
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="executeQuickCommand('show mac address-table')">
+                            <i class="fas fa-table me-2"></i>MAC таблица
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Templates -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>
+                        Шаблоны конфигурации
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="showTemplateModal('basic_setup')">
+                            <i class="fas fa-cogs me-2"></i>Базовая настройка
+                        </button>
+                        <button class="btn btn-outline-success" onclick="showTemplateModal('vlan_setup')">
+                            <i class="fas fa-project-diagram me-2"></i>Настройка VLAN
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="showTemplateModal('trunk_setup')">
+                            <i class="fas fa-code-branch me-2"></i>Настройка Trunk
+                        </button>
+                        <button class="btn btn-outline-info" onclick="showTemplateModal('ssh_setup')">
+                            <i class="fas fa-key me-2"></i>Настройка SSH
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-lg-8 col-md-12">
+            <!-- Custom Commands -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-terminal me-2"></i>
+                        Выполнение команд
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="commandForm">
+                        <div class="mb-3">
+                            <label for="customCommand" class="form-label">Команда</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="customCommand" 
+                                       placeholder="show version" autocomplete="off">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-play me-2"></i>Выполнить
+                                </button>
+                            </div>
+                            <div class="form-text">
+                                Введите команду для выполнения на устройстве
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Configuration Commands -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Команды конфигурации
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="configForm">
+                        <div class="mb-3">
+                            <label for="configCommands" class="form-label">Команды конфигурации</label>
+                            <textarea class="form-control" id="configCommands" rows="6" 
+                                      placeholder="interface GigabitEthernet0/1&#10;description Server Port&#10;switchport mode access&#10;switchport access vlan 10"></textarea>
+                            <div class="form-text">
+                                Введите команды конфигурации (по одной на строку)
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-2"></i>Применить конфигурацию
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="clearConfig()">
+                                <i class="fas fa-eraser me-2"></i>Очистить
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Output -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-desktop me-2"></i>
+                        Вывод команд
+                    </h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearOutput()">
+                        <i class="fas fa-broom me-2"></i>Очистить
+                    </button>
+                </div>
+                <div class="card-body">
+                    <pre id="commandOutput" class="bg-dark text-light p-3 rounded" style="height: 400px; overflow-y: auto; font-size: 0.9em;">
+Добро пожаловать в консоль управления устройством {{ device.name }}
+Готов к выполнению команд...
+                    </pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template Modal -->
+<div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-alt me-2"></i>
+                    <span id="templateTitle">Шаблон конфигурации</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="templateForm">
+                <div class="modal-body">
+                    <div id="templateDescription" class="alert alert-info"></div>
+                    <div id="templateVariables">
+                        <!-- Динамические поля для переменных -->
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label">Предварительный просмотр команд:</label>
+                        <pre id="templatePreview" class="bg-light p-3 rounded"></pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-cogs me-2"></i>Применить шаблон
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <div class="mt-3" id="loadingText">Выполняется операция...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const deviceId = '{{ device.id }}';
+let templates = {};
+
+// Проверка соединения
+function checkConnection() {
+    $('#loadingModal').modal('show');
+    document.getElementById('loadingText').textContent = 'Проверка соединения...';
+    
+    fetch(`/api/devices/${deviceId}/connect`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#loadingModal').modal('hide');
+        if (data.success) {
+            appendToOutput('✓ Соединение установлено успешно\n' + data.result + '\n\n');
+        } else {
+            appendToOutput('✗ Ошибка соединения: ' + data.error + '\n\n');
+        }
+    })
+    .catch(error => {
+        $('#loadingModal').modal('hide');
+        appendToOutput('✗ Ошибка сети: ' + error.message + '\n\n');
+    });
+}
+
+// Выполнение быстрой команды
+function executeQuickCommand(command) {
+    executeCommand(command);
+}
+
+// Выполнение команды
+function executeCommand(command) {
+    if (!command.trim()) return;
+    
+    appendToOutput(`$ ${command}\n`);
+    
+    $('#loadingModal').modal('show');
+    document.getElementById('loadingText').textContent = 'Выполнение команды...';
+    
+    fetch(`/api/devices/${deviceId}/command`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ command: command })
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#loadingModal').modal('hide');
+        if (data.success) {
+            appendToOutput(data.output + '\n\n');
+        } else {
+            appendToOutput('Ошибка: ' + data.error + '\n\n');
+        }
+    })
+    .catch(error => {
+        $('#loadingModal').modal('hide');
+        appendToOutput('Ошибка сети: ' + error.message + '\n\n');
+    });
+}
+
+// Применение конфигурации
+function applyConfiguration(commands) {
+    if (!commands || commands.length === 0) return;
+    
+    appendToOutput('Применение конфигурации...\n');
+    commands.forEach(cmd => appendToOutput(`config# ${cmd}\n`));
+    
+    $('#loadingModal').modal('show');
+    document.getElementById('loadingText').textContent = 'Применение конфигурации...';
+    
+    fetch(`/api/devices/${deviceId}/config`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ commands: commands })
+    })
+    .then(response => response.json())
+    .then(data => {
+        $('#loadingModal').modal('hide');
+        if (data.success) {
+            appendToOutput('\n--- Результат конфигурации ---\n');
+            appendToOutput(data.output.config_output + '\n');
+            appendToOutput('\n--- Сохранение конфигурации ---\n');
+            appendToOutput(data.output.save_output + '\n\n');
+        } else {
+            appendToOutput('Ошибка конфигурации: ' + data.error + '\n\n');
+        }
+    })
+    .catch(error => {
+        $('#loadingModal').modal('hide');
+        appendToOutput('Ошибка сети: ' + error.message + '\n\n');
+    });
+}
+
+// Добавление текста в вывод
+function appendToOutput(text) {
+    const output = document.getElementById('commandOutput');
+    output.textContent += text;
+    output.scrollTop = output.scrollHeight;
+}
+
+// Очистка вывода
+function clearOutput() {
+    document.getElementById('commandOutput').textContent = 
+        `Добро пожаловать в консоль управления устройством {{ device.name }}\nГотов к выполнению команд...\n\n`;
+}
+
+// Очистка конфигурации
+function clearConfig() {
+    document.getElementById('configCommands').value = '';
+}
+
+// Показать модальное окно шаблона
+function showTemplateModal(templateName) {
+    // Загрузка шаблонов
+    fetch('/api/templates')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            templates = data.templates;
+            if (templates[templateName]) {
+                setupTemplateModal(templateName, templates[templateName]);
+                $('#templateModal').modal('show');
+            }
+        }
+    })
+    .catch(error => {
+        // Заглушка с локальными шаблонами
+        setupLocalTemplateModal(templateName);
+        $('#templateModal').modal('show');
+    });
+}
+
+// Настройка модального окна шаблона (локальная версия)
+function setupLocalTemplateModal(templateName) {
+    const localTemplates = {
+        'basic_setup': {
+            name: 'Базовая настройка',
+            description: 'Основные настройки коммутатора',
+            commands: [
+                'hostname {hostname}',
+                'enable secret {enable_password}',
+                'service password-encryption',
+                'banner motd # Unauthorized access prohibited #'
+            ],
+            variables: ['hostname', 'enable_password']
+        },
+        'vlan_setup': {
+            name: 'Настройка VLAN',
+            description: 'Создание и настройка VLAN',
+            commands: [
+                'vlan {vlan_id}',
+                'name {vlan_name}',
+                'exit',
+                'interface {interface}',
+                'switchport mode access',
+                'switchport access vlan {vlan_id}'
+            ],
+            variables: ['vlan_id', 'vlan_name', 'interface']
+        },
+        'trunk_setup': {
+            name: 'Настройка Trunk',
+            description: 'Настройка trunk порта',
+            commands: [
+                'interface {interface}',
+                'switchport mode trunk',
+                'switchport trunk allowed vlan {allowed_vlans}',
+                'switchport trunk native vlan {native_vlan}'
+            ],
+            variables: ['interface', 'allowed_vlans', 'native_vlan']
+        },
+        'ssh_setup': {
+            name: 'Настройка SSH',
+            description: 'Включение и настройка SSH',
+            commands: [
+                'ip domain-name {domain}',
+                'crypto key generate rsa general-keys modulus 2048',
+                'username {username} privilege 15 password {password}',
+                'ip ssh version 2'
+            ],
+            variables: ['domain', 'username', 'password']
+        }
+    };
+    
+    setupTemplateModal(templateName, localTemplates[templateName]);
+}
+
+// Настройка модального окна шаблона
+function setupTemplateModal(templateName, template) {
+    document.getElementById('templateTitle').textContent = template.name;
+    document.getElementById('templateDescription').textContent = template.description;
+    
+    const variablesDiv = document.getElementById('templateVariables');
+    variablesDiv.innerHTML = '';
+    
+    template.variables.forEach(variable => {
+        const div = document.createElement('div');
+        div.className = 'mb-3';
+        div.innerHTML = `
+            <label for="var_${variable}" class="form-label">${variable}</label>
+            <input type="text" class="form-control template-var" id="var_${variable}" 
+                   data-variable="${variable}" placeholder="Введите ${variable}">
+        `;
+        variablesDiv.appendChild(div);
+    });
+    
+    // Предварительный просмотр
+    updateTemplatePreview(template);
+    
+    // Обработчики изменения полей
+    document.querySelectorAll('.template-var').forEach(input => {
+        input.addEventListener('input', () => updateTemplatePreview(template));
+    });
+    
+    // Сохранение текущего шаблона
+    document.getElementById('templateForm').onsubmit = function(e) {
+        e.preventDefault();
+        applyTemplate(template);
+    };
+}
+
+// Обновление предварительного просмотра
+function updateTemplatePreview(template) {
+    const variables = {};
+    document.querySelectorAll('.template-var').forEach(input => {
+        variables[input.dataset.variable] = input.value || `{${input.dataset.variable}}`;
+    });
+    
+    const preview = template.commands.map(cmd => {
+        let result = cmd;
+        Object.keys(variables).forEach(key => {
+            result = result.replace(new RegExp(`{${key}}`, 'g'), variables[key]);
+        });
+        return result;
+    }).join('\n');
+    
+    document.getElementById('templatePreview').textContent = preview;
+}
+
+// Применение шаблона
+function applyTemplate(template) {
+    const variables = {};
+    let hasEmptyVars = false;
+    
+    document.querySelectorAll('.template-var').forEach(input => {
+        if (!input.value.trim()) {
+            hasEmptyVars = true;
+            input.classList.add('is-invalid');
+        } else {
+            input.classList.remove('is-invalid');
+            variables[input.dataset.variable] = input.value.trim();
+        }
+    });
+    
+    if (hasEmptyVars) {
+        showAlert('Заполните все обязательные поля', 'warning');
+        return;
+    }
+    
+    const commands = template.commands.map(cmd => {
+        let result = cmd;
+        Object.keys(variables).forEach(key => {
+            result = result.replace(new RegExp(`{${key}}`, 'g'), variables[key]);
+        });
+        return result;
+    });
+    
+    $('#templateModal').modal('hide');
+    applyConfiguration(commands);
+}
+
+// Обработчики форм
+document.getElementById('commandForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const command = document.getElementById('customCommand').value.trim();
+    if (command) {
+        executeCommand(command);
+        document.getElementById('customCommand').value = '';
+    }
+});
+
+document.getElementById('configForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const configText = document.getElementById('configCommands').value.trim();
+    if (configText) {
+        const commands = configText.split('\n').filter(cmd => cmd.trim());
+        applyConfiguration(commands);
+    }
+});
+
+// Показать уведомление
+function showAlert(message, type) {
+    const alertDiv = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    $('.container-fluid').first().prepend(alertDiv);
+}
+
+// Автозаполнение команд
+const commonCommands = [
+    'show version',
+    'show running-config',
+    'show ip interface brief',
+    'show vlan brief',
+    'show mac address-table',
+    'show interfaces status',
+    'show spanning-tree',
+    'show ip route'
+];
+
+// Инициализация
+$(document).ready(function() {
+    // Автозаполнение для поля команд
+    $('#customCommand').on('input', function() {
+        const value = $(this).val().toLowerCase();
+        // Здесь можно добавить автозаполнение
+    });
+    
+    // Проверяем соединение при загрузке страницы
+    setTimeout(checkConnection, 1000);
+});
+</script>
+{% endblock %}
